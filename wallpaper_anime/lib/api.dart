@@ -27,17 +27,31 @@ class api1 {
 }
 
 class api2 {
-  static Future<Map<String, dynamic>> fetchWaifus() async {
-    const apiUrl = 'https://api.waifu.im/search';
+  static Future<Map<String, dynamic>> fetchData() async {
+    final apiUrl = 'https://api.waifu.im/search';
+    final params = {
+      'included_tags': 'maid',
+      'height': '>=1080',
+    };
 
-    final response = await http.get(Uri.parse(apiUrl));
-    print(response.body);
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data;
-    } else {
-      throw Exception(
-          'Request failed with status code: ${response.statusCode}');
+    final queryParams = Uri(queryParameters: params).query;
+    final requestUrl = '$apiUrl?$queryParams';
+    print(requestUrl);
+    try {
+      final response = await http.get(Uri.parse(requestUrl));
+      print("sadsadsad ${response.statusCode}");
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print(data);
+
+        return data;
+      } else {
+        throw Exception(
+            'Request failed with status code: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('An error occurred: $error');
+      return {}; // Boş bir harita döndürülebilir
     }
   }
 

@@ -30,23 +30,10 @@ class _chanel2State extends State<chanel2> {
 
   Future<void> fetchWaifuImage() async {
     try {
-      final data = await api2.fetchWaifus();
-      final images = data['images'];
-      if (images.isNotEmpty) {
-        print(images[0]['url']);
-        final imageUrl = images[0]['url'];
-        imageUrls.add(imageUrl);
-        setState(() {
-          imageUrls;
-
-          print(imageUrls.length);
-        });
-      } else {
-        // Eğer URL yoksa, tekrar deneme yapabilirsiniz
-        fetchWaifuImage();
-      }
+      final data = await api2.fetchData();
+      print(data);
     } catch (e) {
-      // Hata yönetimi burada yapılabilir
+      print('Error fetching images: $e');
     }
   }
 
@@ -70,38 +57,19 @@ class _chanel2State extends State<chanel2> {
                 ),
               ),
               SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      await saveImageToGallery(imageUrl);
-                      Navigator.pop(context);
-                    },
-                    child: Text('Save to Gallery'),
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(20),
-                            topLeft: Radius.circular(20)),
-                      ),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await setWallpaper(imageUrl);
-                      Navigator.pop(context);
-                    },
-                    child: Text('Set Walpaper'),
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.only(
-                            bottomRight: Radius.circular(20),
-                            topRight: Radius.circular(20)),
-                      ),
-                    ),
-                  ),
-                ],
+              ElevatedButton(
+                onPressed: () async {
+                  await saveImageToGallery(imageUrl);
+                  Navigator.pop(context);
+                },
+                child: Text('Save to Gallery'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await setWallpaper(imageUrl);
+                  Navigator.pop(context);
+                },
+                child: Text('set walpaper'),
               ),
             ],
           ),
@@ -175,11 +143,14 @@ class _chanel2State extends State<chanel2> {
     super.initState();
     _scrollController.addListener(_scrollListener);
     fetchWaifuImage();
-    _timer = Timer.periodic(Duration(milliseconds: 202), (timer) {
-      if (imageUrls.length < 30) {
-        fetchWaifuImage();
-      } else {}
-    });
+    try {
+      _timer = Timer.periodic(Duration(milliseconds: 202), (timer) {
+        if (imageUrls.length < 15) {
+          fetchWaifuImage();
+        } else {}
+      });
+    } catch (e) {}
+
     initAppState();
   }
 

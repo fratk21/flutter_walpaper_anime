@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallpaper_manager/flutter_wallpaper_manager.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:wallpaper_anime/api.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 class chanell1 extends StatefulWidget {
   const chanell1({super.key});
@@ -50,20 +51,13 @@ class _chanell1State extends State<chanell1> {
   ];
   List<String> imageUrls = [];
   ScrollController _scrollController = ScrollController();
-  final CacheManager _cacheManager = DefaultCacheManager();
 
   Future<void> fetchWaifuImages() async {
     try {
       final files = await api1.fetchImages(selectedCategory);
-      final preloadedImageUrls = files.take(10).toList();
-
       setState(() {
         imageUrls.addAll(files);
       });
-
-      for (final imageUrl in preloadedImageUrls) {
-        await api1.fetchImageBytes(imageUrl);
-      }
     } catch (e) {
       // Hata yönetimi burada yapılabilir
     }
@@ -82,6 +76,23 @@ class _chanell1State extends State<chanell1> {
     }
   }
 
+  // Diğer işlevler burada devam eder
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_scrollListener);
+    fetchWaifuImages();
+  }
+
+  @override
+  void dispose() {
+    // CacheManager'ı temizleyin
+    _cacheManager.dispose();
+    super.dispose();
+  }
+
+  final CacheManager _cacheManager = DefaultCacheManager();
   void _showImageDialog(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
@@ -97,25 +108,47 @@ class _chanell1State extends State<chanell1> {
                 child: CachedNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Center(
-                    child: LoadingAnimationWidget.dotsTriangle(
-                      color: Colors.blue,
-                      size: 50,
-                    ),
-                  ),
+                  placeholder: (context, url) => CircularProgressIndicator(),
                   errorWidget: (context, url, error) => Icon(Icons.error),
-                  cacheManager: _cacheManager,
                 ),
               ),
               SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () async {
-                  await saveImageToGallery(imageUrl);
-                  Navigator.pop(context);
-                },
-                child: Text('Save to Gallery'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      await saveImageToGallery(imageUrl);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(20),
+                            topLeft: Radius.circular(20)),
+                      ),
+                    ),
+                    child: Text('Save to Gallery'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await setWallpaper(imageUrl);
+                      Navigator.pop(context);
+                    },
+                    child: Text('Set Walpaper'),
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.only(
+                            bottomRight: Radius.circular(20),
+                            topRight: Radius.circular(20)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 10),
+              SizedBox(
+                height: 10,
+              )
             ],
           ),
         );
@@ -130,8 +163,6 @@ class _chanell1State extends State<chanell1> {
       fetchWaifuImages();
     }
   }
-
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _showSweetSnackBar(BuildContext context, text) {
     final snackBar = SnackBar(
@@ -152,18 +183,52 @@ class _chanell1State extends State<chanell1> {
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_scrollListener);
-    fetchWaifuImages();
+  String _platformVersion = 'Unknown';
+  String __heightWidth = "Unknown";
+
+  // Platform messages are asynchronous, so we initialize in an async method.
+  Future<void> initAppState() async {
+    String platformVersion;
+    String _heightWidth;
+    // Platform messages may fail, so we use a try/catch PlatformException.
+    // We also handle the message potentially returning null.
+    try {
+      platformVersion =
+          await WallpaperManager.platformVersion ?? 'Unknown platform version';
+    } on PlatformException {
+      platformVersion = 'Failed to get platform version.';
+    }
+
+    try {
+      int height = await WallpaperManager.getDesiredMinimumHeight();
+      int width = await WallpaperManager.getDesiredMinimumWidth();
+      _heightWidth =
+          "Width = " + width.toString() + " Height = " + height.toString();
+    } on PlatformException {
+      platformVersion = 'Failed to get platform version.';
+      _heightWidth = "Failed to get Height and Width";
+    }
+
+    // If the widget was removed from the tree while the asynchronous platform
+    // message was in flight, we want to discard the reply rather than calling
+    // setState to update our non-existent appearance.
+    if (!mounted) return;
+
+    setState(() {
+      __heightWidth = _heightWidth;
+      _platformVersion = platformVersion;
+    });
   }
 
-  @override
-  void dispose() {
-    _scrollController.removeListener(_scrollListener);
-    _cacheManager.dispose();
-    super.dispose();
+  Future<void> setWallpaper(url) async {
+    try {
+      int location = WallpaperManager
+          .BOTH_SCREEN; // or location = WallpaperManager.LOCK_SCREEN;
+      var file = await DefaultCacheManager().getSingleFile(url);
+      final bool result =
+          await WallpaperManager.setWallpaperFromFile(file.path, location);
+      print(result);
+    } on PlatformException {}
   }
 
   @override
@@ -171,7 +236,11 @@ class _chanell1State extends State<chanell1> {
     return Scaffold(
       extendBody: false,
       appBar: AppBar(
-        title: Text('Waifu Gallery'),
+        title: Text(
+          '${selectedCategory.toUpperCase()} GALLERY (˃ᆺ˂)',
+          style:
+              TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold),
+        ),
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(50.0),
           child: SingleChildScrollView(
@@ -190,8 +259,8 @@ class _chanell1State extends State<chanell1> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: selectedCategory == category
-                          ? Color(0xFFFF69B4)
-                          : Color(0xFFFFC0CB),
+                          ? Colors.deepPurple
+                          : Color(0xFFFF69B4),
                       elevation: 8,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
@@ -253,7 +322,6 @@ class _chanell1State extends State<chanell1> {
                                 ),
                                 errorWidget: (context, url, error) =>
                                     Icon(Icons.error),
-                                cacheManager: _cacheManager,
                               ),
                             ),
                           );
